@@ -1,23 +1,23 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-  <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width,initial-scale=1">
-  <title>JLT 簽到系統</title>
-  <style>
-    :root{--primary:#4CAF50;--secondary:#FFC107;--text:#333;--bg:#f0f8ff;--hover:#45a049;}
-    body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:20px;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;min-height:100vh}
-    h1{font-size:2.5em;color:var(--primary);margin:20px 0;text-align:center}
-    button{display:block;margin:20px auto;padding:18px 40px;font-size:1.8em;background:var(--primary);color:#fff;border:none;border-radius:12px;cursor:pointer;width:80%;max-width:300px}
-    button:hover{background:var(--hover);transform:translateY(-2px)}
-    #preview{width:100%;max-width:400px;height:300px;object-fit:cover;border:2px solid var(--primary);border-radius:8px}
-    .info p{margin:10px 0;font-size:1.1em}
-    .hidden{display:none}
-  </style>
-  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>JLT 2025 現場掃描Sign-In</title>
+<style>
+  :root{--primary:#4CAF50;--text:#333;--bg:#f0f8ff}
+  body{margin:0;padding:20px;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center}
+  img{max-width:280px;margin:20px 0}
+  h1{font-size:2.5em;color:var(--primary);text-align:center;margin-bottom:30px}
+  button{display:block;margin:15px auto;padding:18px 40px;font-size:1.8em;background:var(--primary);color:#fff;border:none;border-radius:12px;cursor:pointer;width:80%;max-width:300px}
+  #preview{width:100%;max-width:400px;height:300px;object-fit:cover;border:2px solid var(--primary);border-radius:8px}
+  .info p{margin:10px 0;font-size:1.1em}
+  .hidden{display:none}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
 <body>
-  <img src="https://www.torontostm.com/wp-content/uploads/2016/12/TSTM-Logo-with-slogan-768x121.png" alt="JLT Logo" style="max-width:280px">
+  <img src="https://www.torontostm.com/wp-content/uploads/2016/12/TSTM-Logo-with-slogan-768x121.png" alt="JLT Logo">
   <h1>JLT 2025 現場掃描Sign-In</h1>
 
   <div id="startScreen">
@@ -45,6 +45,8 @@
   </div>
 
 <script>
+// 1️⃣ 把下面地址换成你重新部署后的 Apps Script Web App URL
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbx6uz3m8QiaQj6cqLHTBTr214QbTgxx2p9_KxFQ1jDvcxDWSRHsOCa_aoZSPOAsnMlN/exec';
 let currentEmail = '';
 
 function startScan() {
@@ -62,14 +64,17 @@ function startScan() {
           const code=jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);
           if(code){
             video.srcObject.getTracks().forEach(t=>t.stop());
-            google.script.run
-              .withSuccessHandler(handleScanResult)
-              .withFailureHandler(err=>{alert(err.message);resetApp()})
-              .scanQR(code.data);
+            fetch(GAS_URL,{
+              method:'POST',
+              headers:{'Content-Type':'application/json'},
+              body:JSON.stringify({action:'scanQR',qrCodeContent:code.data})
+            })
+            .then(r=>r.json())
+            .then(handleScanResult)
+            .catch(err=>{alert('網絡錯誤：'+err);resetApp()});
           }else requestAnimationFrame(tick);
         }else requestAnimationFrame(tick);
-      };
-      tick();
+      };tick();
     })
     .catch(err=>{alert('無法啟用相機：'+err);resetApp()});
 }
@@ -84,15 +89,18 @@ function handleScanResult(res){
 }
 
 function confirmCheckIn(){
-  if(!currentEmail){alert('無 Email');return;}
-  google.script.run
-    .withSuccessHandler(res=>{alert(res.message);resetApp()})
-    .withFailureHandler(err=>{alert(err.message);resetApp()})
-    .confirmCheckIn(currentEmail);
+  fetch(GAS_URL,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({action:'confirmCheckIn',attendeeEmail:currentEmail})
+  })
+  .then(r=>r.json())
+  .then(res=>{alert(res.message);resetApp()})
+  .catch(err=>{alert('網絡錯誤：'+err);resetApp()});
 }
 
 function resetApp(){
-  window.location.href=google.script.url; // 強制整頁重新載入
+  window.location.href=window.location.href.split('?')[0];
 }
 </script>
 </body>
