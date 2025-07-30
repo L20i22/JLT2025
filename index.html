@@ -1,123 +1,72 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="UTF-8">
-<title>JLT 2025 現場掃描Sign-In</title>
+<meta charset="UTF-8" />
+<title>JLT 2025 现场扫码签到</title>
 <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no">
-<script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 <style>
-  :root{
-    --bg:#004d40;        /* 深绿背景 */
-    --primary:#26a69a;   /* 青绿按钮 */
-    --accent:#ffab00;    /* 黄色强调 */
-    --text:#ffffff;
-    --err:#e53935;
-  }
-  html,body{margin:0;padding:0;height:100%;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;}
-  img.logo{max-width:80vw;height:auto;margin-bottom:20px;}
+  :root{--bg:#004d40;--primary:#26a69a;--text:#fff;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+            display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:-apple-system,BlinkMacSystemFont,"Helvetica Neue",Helvetica,Arial,sans-serif;}
+  img.logo{max-width:80vw;margin-bottom:20px;}
   h1{font-size:2.3rem;margin:10px 0 30px;font-weight:700;letter-spacing:.05em;}
-  button.scan-btn{background:var(--primary);border:none;color:#fff;font-size:1.5rem;padding:20px 60px;border-radius:12px;box-shadow:0 4px 12px rgba(0,0,0,.3);}
-  #reader{width:80vw;max-width:400px;margin:20px auto;}
-  #resultArea{background:#fff;color:#000;border-radius:12px;padding:20px;margin:20px 10px;text-align:left;max-width:400px;width:90vw;}
-  #resultArea table{width:100%;border-collapse:collapse;font-size:1rem;}
-  #resultArea th,#resultArea td{padding:6px 0;}
-  #resultArea th{color:var(--primary);}
-  .error{color:var(--err);font-size:1.2rem;}
-  .hidden{display:none;}
+  button.scan-btn{background:var(--primary);border:none;color:#fff;font-size:1.5rem;padding:20px 60px;border-radius:12px}
+  #video{width:100%;max-width:400px;border-radius:12px;display:none}
 </style>
 </head>
 <body>
-  <!-- 初始页 -->
-  <div id="home">
-    <img class="logo" src="https://www.torontostm.com/wp-content/uploads/2016/12/TSTM-Logo-with-slogan-768x121.png" alt="TSTM Logo">
-    <h1>JLT 2025 現場掃描Sign-In</h1>
-    <button class="scan-btn" onclick="startScan()">開始掃描</button>
-  </div>
+  <img class="logo" src="https://www.torontostm.com/wp-content/uploads/2016/12/TSTM-Logo-with-slogan-768x121.png" alt="TSTM Logo">
+  <h1>JLT 2025 現場掃描Sign-In</h1>
 
-  <!-- 扫码页 -->
-  <div id="scanPage" class="hidden">
-    <div id="reader"></div>
-    <button class="scan-btn" onclick="stopScan()">取消</button>
-  </div>
+  <!-- 开始按钮 -->
+  <button class="scan-btn" id="startBtn">開始掃描</button>
 
-  <!-- 结果页 -->
-  <div id="resultPage" class="hidden">
-    <div id="resultArea"></div>
-    <button class="scan-btn" onclick="confirmCheckIn()">Confirm Check-In</button>
-    <button class="scan-btn" onclick="goHome()">返回</button>
-  </div>
+  <!-- 视频预览 -->
+  <video id="video" playsinline></video>
 
-<script>
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx6uz3m8QiaQj6cqLHTBTr214QbTgxx2p9_KxFQ1jDvcxDWSRHsOCa_aoZSPOAsnMlN/exec'; // 改为你自己的
-let currentData = null;
-let html5Qrcode;
+  <!-- jsQR 库 -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 
-function goHome(){
-  window.location.href = window.location.href.split('?')[0]; // 强制刷新
-}
-function startScan(){
-  document.getElementById('home').classList.add('hidden');
-  document.getElementById('scanPage').classList.remove('hidden');
-  html5Qrcode = new Html5Qrcode("reader");
-  html5Qrcode.start({ facingMode: "environment" },
-  { fps: 10, qrbox: 250 },
-  onScanSuccess,
-  ()=>{}
-)
-function stopScan(){
-  if(html5Qrcode){
-    html5Qrcode.stop().then(()=>{
-      document.getElementById('scanPage').classList.add('hidden');
-      document.getElementById('home').classList.remove('hidden');
+  <script>
+  const startBtn = document.getElementById('startBtn');
+  const video    = document.getElementById('video');
+  const canvas   = document.createElement('canvas');
+  const ctx      = canvas.getContext('2d');
+  let scanning   = false;
+
+  startBtn.onclick = startScan;
+
+  async function startScan() {
+    startBtn.style.display = 'none';
+    video.style.display = 'block';
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: 'environment' }
     });
+    video.srcObject = stream;
+    video.onloadedmetadata = () => {
+      video.play();
+      scanning = true;
+      tick();
+    };
   }
-}
-function onScanSuccess(decodedText){
-  stopScan();
-  fetch(GAS_URL,{
-    method:'POST',
-    body:JSON.stringify({action:'lookup',qr:decodedText}),
-    headers:{'Content-Type':'application/json'}
-  })
-  .then(r=>r.json())
-  .then(data=>{
-    if(data.status==='notfound'){
-      alert('無法找到報名信息');
-      goHome();
-    }else{
-      currentData = data;
-      showResult(data);
+
+  function tick() {
+    if (!scanning) return;
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.height = video.videoHeight;
+      canvas.width  = video.videoWidth;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      const code = jsQR(imageData.data, imageData.width, imageData.height);
+      if (code) {
+        scanning = false;
+        video.srcObject.getTracks().forEach(t => t.stop());
+        alert('QR 内容：\n' + code.data);   // 这里你可以换成自己的后续流程
+        location.reload();                 // 回到首页
+      }
     }
-  });
-}
-function showResult(d){
-  let html = `<b>${d.firstLast} (${d.chineseName})</b><br>
-              Email: ${d.email}<br>
-              Church: ${d.church}<br>
-              Languages: ${d.languages}<br>
-              Gender: ${d.gender}<br>
-              Phone: ${d.phone}<br><br>
-              <b>佈道時段</b><table>`;
-  for(const [day,val] of Object.entries(d.slots)){
-    if(val) html+=`<tr><th>${day}</th><td>${val}</td></tr>`;
+    requestAnimationFrame(tick);
   }
-  html+=`</table><br><b>T-shirt Size:</b> ${d.tshirt}`;
-  document.getElementById('resultArea').innerHTML = html;
-  document.getElementById('scanPage').classList.add('hidden');
-  document.getElementById('resultPage').classList.remove('hidden');
-}
-function confirmCheckIn(){
-  fetch(GAS_URL,{
-    method:'POST',
-    body:JSON.stringify({action:'checkin',...currentData}),
-    headers:{'Content-Type':'application/json'}
-  })
-  .then(r=>r.json())
-  .then(res=>{
-    if(res.status==='ok'){ alert('Check-in 成功'); goHome(); }
-    else alert('失敗，請重試');
-  });
-}
-</script>
+  </script>
 </body>
 </html>
