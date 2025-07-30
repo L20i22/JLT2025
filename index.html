@@ -60,11 +60,10 @@ function startScan(){
   document.getElementById('scanPage').classList.remove('hidden');
   html5Qrcode = new Html5Qrcode("reader");
   html5Qrcode.start({ facingMode: "environment" },
-    { fps: 10, qrbox: 250 },
-    onScanSuccess,
-    ()=>{}
-  ).catch(err=>alert(err));
-}
+  { fps: 10, qrbox: 250 },
+  onScanSuccess,
+  ()=>{}
+)
 function stopScan(){
   if(html5Qrcode){
     html5Qrcode.stop().then(()=>{
