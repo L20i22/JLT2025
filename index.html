@@ -1,34 +1,16 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>JLT 2025 現場掃描Sign-In</title>
-<style>
-  :root{--primary:#4CAF50;--text:#333;--bg:#f0f8ff}
-  body{margin:0;padding:20px;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center}
-  img{max-width:280px;margin:20px 0}
-  h1{font-size:2.5em;color:var(--primary);text-align:center;margin-bottom:30px}
-  button{display:block;margin:15px auto;padding:18px 40px;font-size:1.8em;background:var(--primary);color:#fff;border:none;border-radius:12px;cursor:pointer;width:80%;max-width:300px}
-  #preview{width:100%;max-width:400px;height:300px;object-fit:cover;border:2px solid var(--primary);border-radius:8px}
-  .info p{margin:10px 0;font-size:1.1em}
-  .hidden{display:none}
-</style>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+<style>body{margin:0;padding:20px;font-family:'Segoe UI',Arial,sans-serif;display:flex;flex-direction:column;align-items:center;background:#f0f8ff;color:#333}h1{font-size:2.5em;color:#4CAF50}button{display:block;margin:15px auto;padding:18px 40px;font-size:1.8em;background:#4CAF50;color:#fff;border:none;border-radius:12px;width:80%;max-width:300px}#preview{width:100%;max-width:400px;height:300px;object-fit:cover;border:2px solid #4CAF50;border-radius:8px}.info p{margin:10px 0}.hidden{display:none}</style>
 </head>
 <body>
-  <img src="https://www.torontostm.com/wp-content/uploads/2016/12/TSTM-Logo-with-slogan-768x121.png" alt="JLT Logo">
+  <img src="https://www.torontostm.com/wp-content/uploads/2016/12/TSTM-Logo-with-slogan-768x121.png" alt="JLT Logo" style="max-width:280px">
   <h1>JLT 2025 現場掃描Sign-In</h1>
 
-  <div id="startScreen">
-    <button onclick="startScan()">開始掃描</button>
-  </div>
-
-  <div id="scanScreen" class="hidden">
-    <video id="preview" autoplay playsinline></video>
-    <button onclick="resetApp()">返回首頁</button>
-  </div>
-
+  <div id="startScreen"><button onclick="startScan()">開始掃描</button></div>
+  <div id="scanScreen" class="hidden"><video id="preview" autoplay playsinline></video><button onclick="resetApp()">返回首頁</button></div>
   <div id="result" class="hidden">
     <div class="info">
       <p><strong>英文姓名：</strong><span id="firstName"></span></p>
@@ -45,11 +27,9 @@
   </div>
 
 <script>
-// 1️⃣ 把下面地址换成你重新部署后的 Apps Script Web App URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbzguKnQWqWWKLACbuLOQLXelMMVezW3kGXHXrNd6fL4cnwXzRNCzwyYQyMCUkrMRzA/exec';
-let currentEmail = '';
-
-function startScan() {
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbxSFKjwD8KhUV-k87iEGahoWKkKvXRUru-fFX9OHZy5jfinwHwtAivPpL-x7AZTWfDV/exec';
+let currentEmail='';
+function startScan(){
   document.getElementById('startScreen').classList.add('hidden');
   document.getElementById('scanScreen').classList.remove('hidden');
   navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
@@ -64,21 +44,16 @@ function startScan() {
           const code=jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);
           if(code){
             video.srcObject.getTracks().forEach(t=>t.stop());
-            fetch(GAS_URL,{
-              method:'POST',
-              headers:{'Content-Type':'application/json'},
-              body:JSON.stringify({action:'scanQR',qrCodeContent:code.data})
-            })
-            .then(r=>r.json())
-            .then(handleScanResult)
-            .catch(err=>{alert('網絡錯誤：'+err);resetApp()});
+            fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'scanQR',qrCodeContent:code.data})})
+              .then(r=>r.json())
+              .then(handleScanResult)
+              .catch(err=>{alert('網絡錯誤：'+err);resetApp()});
           }else requestAnimationFrame(tick);
         }else requestAnimationFrame(tick);
       };tick();
     })
     .catch(err=>{alert('無法啟用相機：'+err);resetApp()});
 }
-
 function handleScanResult(res){
   document.getElementById('scanScreen').classList.add('hidden');
   if(!res.success){alert(res.message);resetApp();return;}
@@ -87,21 +62,13 @@ function handleScanResult(res){
     .forEach(k=>document.getElementById(k).textContent=a[k]||'');
   document.getElementById('result').classList.remove('hidden');
 }
-
 function confirmCheckIn(){
-  fetch(GAS_URL,{
-    method:'POST',
-    headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({action:'confirmCheckIn',attendeeEmail:currentEmail})
-  })
-  .then(r=>r.json())
-  .then(res=>{alert(res.message);resetApp()})
-  .catch(err=>{alert('網絡錯誤：'+err);resetApp()});
+  fetch(GAS_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'confirmCheckIn',attendeeEmail:currentEmail})})
+    .then(r=>r.json())
+    .then(res=>{alert(res.message);resetApp()})
+    .catch(err=>{alert('網絡錯誤：'+err);resetApp()});
 }
-
-function resetApp(){
-  window.location.href=window.location.href.split('?')[0];
-}
+function resetApp(){window.location.href=window.location.href.split('?')[0];}
 </script>
 </body>
 </html>
