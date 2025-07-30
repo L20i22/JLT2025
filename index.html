@@ -1,33 +1,34 @@
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>JLT 簽到系統</title>
-<style>
-  html,body{margin:0;padding:20px;font-family:Arial,Helvetica,sans-serif;font-size:26px;line-height:1.6;background:#004d40;color:#fff}
-  h2{font-size:36px;margin-bottom:20px;text-align:center}
-  button{display:block;margin:20px auto;padding:16px 32px;font-size:28px;border:none;border-radius:8px;background:#26a69a;color:#fff;cursor:pointer}
-  #preview{width:100%;max-width:400px;border:1px solid #ccc;border-radius:8px;margin:0 auto 20px;display:block}
-  .info p{margin:10px 0;font-size:28px}
-  .hidden{display:none}
-</style>
-<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>JLT 簽到系統</title>
+  <style>
+    :root{--primary:#4CAF50;--secondary:#FFC107;--text:#333;--bg:#f0f8ff;--hover:#45a049;}
+    body{font-family:'Segoe UI',Arial,sans-serif;margin:0;padding:20px;background:var(--bg);color:var(--text);display:flex;flex-direction:column;align-items:center;min-height:100vh}
+    h1{font-size:2.5em;color:var(--primary);margin:20px 0;text-align:center}
+    button{display:block;margin:20px auto;padding:18px 40px;font-size:1.8em;background:var(--primary);color:#fff;border:none;border-radius:12px;cursor:pointer;width:80%;max-width:300px}
+    button:hover{background:var(--hover);transform:translateY(-2px)}
+    #preview{width:100%;max-width:400px;height:300px;object-fit:cover;border:2px solid var(--primary);border-radius:8px}
+    .info p{margin:10px 0;font-size:1.1em}
+    .hidden{display:none}
+  </style>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
 </head>
 <body>
-  <h2>JLT 2025 現場掃描Sign-In</h2>
+  <img src="https://www.torontostm.com/wp-content/uploads/2016/12/TSTM-Logo-with-slogan-768x121.png" alt="JLT Logo" style="max-width:280px">
+  <h1>JLT 2025 現場掃描Sign-In</h1>
 
-  <!-- 初始畫面 -->
   <div id="startScreen">
     <button onclick="startScan()">開始掃描</button>
   </div>
 
-  <!-- 相機畫面 -->
   <div id="scanScreen" class="hidden">
     <video id="preview" autoplay playsinline></video>
+    <button onclick="resetApp()">返回首頁</button>
   </div>
 
-  <!-- 報名者資訊 -->
   <div id="result" class="hidden">
     <div class="info">
       <p><strong>英文姓名：</strong><span id="firstName"></span></p>
@@ -37,89 +38,61 @@
       <p><strong>語言：</strong><span id="language"></span></p>
       <p><strong>性別：</strong><span id="gender"></span></p>
       <p><strong>電話：</strong><span id="phone"></span></p>
-      <hr>
-      <p id="slotsInfo"></p>
       <p><strong>T-shirt 尺寸：</strong><span id="tshirtSize"></span></p>
       <button onclick="confirmCheckIn()">確認簽到</button>
+      <button onclick="resetApp()">返回首頁</button>
     </div>
   </div>
 
 <script>
-// 1. 把下面地址替换成你重新部署后的 Apps Script Web App URL
-const GAS_URL = 'https://script.google.com/macros/s/AKfycbx6uz3m8QiaQj6cqLHTBTr214QbTgxx2p9_KxFQ1jDvcxDWSRHsOCa_aoZSPOAsnMlN/exec';
-
-const startScreen = document.getElementById('startScreen');
-const scanScreen  = document.getElementById('scanScreen');
-const result      = document.getElementById('result');
-const video       = document.getElementById('preview');
-let currentEmail  = '';
+let currentEmail = '';
 
 function startScan() {
-  startScreen.classList.add('hidden');
-  scanScreen.classList.remove('hidden');
+  document.getElementById('startScreen').classList.add('hidden');
+  document.getElementById('scanScreen').classList.remove('hidden');
   navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}})
-    .then(stream => {video.srcObject = stream; video.play(); tick();})
-    .catch(err => {alert('無法啟用相機：'+err);});
-}
-
-const canvas=document.createElement('canvas'), ctx=canvas.getContext('2d');
-function tick(){
-  if(video.readyState===video.HAVE_ENOUGH_DATA){
-    canvas.width  = video.videoWidth;
-    canvas.height = video.videoHeight;
-    ctx.drawImage(video,0,0);
-    const code = jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data,
-                      canvas.width, canvas.height);
-    if(code){
-      video.srcObject.getTracks().forEach(t=>t.stop());
-      fetch(GAS_URL,{
-        method:'POST',
-        body:JSON.stringify({action:'lookup',qr:code.data}),
-        headers:{'Content-Type':'application/json'}
-      })
-      .then(r=>r.json())
-      .then(handleScanResult)
-      .catch(err=>{alert('網絡錯誤：'+err)});
-    }else{
-      requestAnimationFrame(tick);
-    }
-  }else{
-    requestAnimationFrame(tick);
-  }
+    .then(stream=>{
+      const video=document.getElementById('preview');
+      video.srcObject=stream;video.play();
+      const canvas=document.createElement('canvas'),ctx=canvas.getContext('2d');
+      const tick=()=>{
+        if(video.readyState===video.HAVE_ENOUGH_DATA){
+          canvas.width=video.videoWidth;canvas.height=video.videoHeight;
+          ctx.drawImage(video,0,0);
+          const code=jsQR(ctx.getImageData(0,0,canvas.width,canvas.height).data,canvas.width,canvas.height);
+          if(code){
+            video.srcObject.getTracks().forEach(t=>t.stop());
+            google.script.run
+              .withSuccessHandler(handleScanResult)
+              .withFailureHandler(err=>{alert(err.message);resetApp()})
+              .scanQR(code.data);
+          }else requestAnimationFrame(tick);
+        }else requestAnimationFrame(tick);
+      };
+      tick();
+    })
+    .catch(err=>{alert('無法啟用相機：'+err);resetApp()});
 }
 
 function handleScanResult(res){
-  scanScreen.classList.add('hidden');
-  if(res.status==='notfound'){alert('無法找到報名信息');window.location.reload();return;}
-
-  const a = res;
-  currentEmail = a.email;
-  ['firstName','chineseName','email','church','language','gender','phone']
-      .forEach(k=>document.getElementById(k).textContent=a[k]||'');
-  document.getElementById('tshirtSize').textContent = a.tshirt || '不購買';
-
-  // 組合佈道時段
-  const slots = Object.entries(a.slots||{})
-                      .filter(([,v])=>v)
-                      .map(([k,v])=>`${k}：${v}`)
-                      .join('<br>');
-  document.getElementById('slotsInfo').innerHTML = slots ? '<strong>已選佈道時段：</strong><br>'+slots : '';
-
-  result.classList.remove('hidden');
+  document.getElementById('scanScreen').classList.add('hidden');
+  if(!res.success){alert(res.message);resetApp();return;}
+  const a=res.attendee;currentEmail=a.email;
+  ['firstName','chineseName','email','church','language','gender','phone','tshirtSize']
+    .forEach(k=>document.getElementById(k).textContent=a[k]||'');
+  document.getElementById('result').classList.remove('hidden');
 }
 
 function confirmCheckIn(){
-  fetch(GAS_URL,{
-    method:'POST',
-    body:JSON.stringify({action:'checkin',email:currentEmail}),
-    headers:{'Content-Type':'application/json'}
-  })
-  .then(r=>r.json())
-  .then(r=>{
-     if(r.status==='ok'){alert('簽到成功！');window.location.href=window.location.href.split('?')[0];}
-     else alert('簽到失敗：'+r.message);
-  })
-  .catch(err=>alert('網絡錯誤：'+err));
+  if(!currentEmail){alert('無 Email');return;}
+  google.script.run
+    .withSuccessHandler(res=>{alert(res.message);resetApp()})
+    .withFailureHandler(err=>{alert(err.message);resetApp()})
+    .confirmCheckIn(currentEmail);
+}
+
+function resetApp(){
+  window.location.href=google.script.url; // 強制整頁重新載入
 }
 </script>
 </body>
